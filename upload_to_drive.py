@@ -41,13 +41,15 @@ def upload_directory(local_dir_path, parent_drive_id):
             ).execute()
 
 # Sesuaikan path mlruns sesuai struktur repo
+# Path folder mlruns
 local_mlruns_0 = "./MLProject/mlruns/0"
 
+# Tambahkan pengecekan folder di sini
 if not os.path.exists(local_mlruns_0):
     print(f"Folder {local_mlruns_0} tidak ada. Pastikan MLflow sudah dijalankan.")
     exit(1)
 
-# Upload setiap run_id
+# Mulai upload setiap run_id
 for run_id in os.listdir(local_mlruns_0):
     run_id_local_path = os.path.join(local_mlruns_0, run_id)
     if os.path.isdir(run_id_local_path):
