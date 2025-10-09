@@ -8,7 +8,6 @@ import warnings
 if __name__ == "__main__":
     warnings.filterwarnings("ignore")
 
-    # Argparse untuk ambil parameter dari MLflow Project
     parser = argparse.ArgumentParser()
     parser.add_argument("--train_path", type=str, default="./liver_cancer_preprocessing/train_liver.csv")
     parser.add_argument("--test_path", type=str, default="./liver_cancer_preprocessing/test_liver.csv")
@@ -16,7 +15,6 @@ if __name__ == "__main__":
     parser.add_argument("--max_depth", type=int, default=37)
     args = parser.parse_args()
 
-    # Baca dataset
     train_data = pd.read_csv(args.train_path)
     test_data = pd.read_csv(args.test_path)
 
@@ -25,9 +23,9 @@ if __name__ == "__main__":
     X_test = test_data.drop('liver_cancer', axis=1)
     y_test = test_data['liver_cancer']
 
-    # Aktifkan autolog
     mlflow.sklearn.autolog()
 
+    # Jangan set_experiment atau set_tracking_uri di sini
     with mlflow.start_run():
         model = RandomForestClassifier(
             n_estimators=args.n_estimators,
