@@ -1,0 +1,12 @@
+name: liver-train
+
+conda_env: conda.yaml
+
+entry_points:
+  train:
+    parameters:
+      train_path: {type: str, default: "./liver_cancer_preprocessing/train_liver.csv"}
+      test_path:  {type: str, default: "./liver_cancer_preprocessing/test_liver.csv"}
+      n_estimators: {type: int, default: 505}
+      max_depth: {type: int, default: 37}
+    command: "python modelling.py --train_path {train_path} --test_path {test_path} --n_estimators {n_estimators} --max_depth {max_depth}"
