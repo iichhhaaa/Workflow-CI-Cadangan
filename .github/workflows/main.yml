@@ -1,4 +1,4 @@
-name: Skilled CI - MLflow with Google Drive
+name: CI
 
 on:
   push:
@@ -8,45 +8,94 @@ on:
     branches:
       - main
 
+env:
+  CSV_URL: "MLproject/train_pca.csv"
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repo
-      - uses: actions/checkout@v3
+      # ----------------------------------------
+      # Set up job: Checkout repository
+      # ----------------------------------------
+      - name: Run actions/checkout@v3
+        uses: actions/checkout@v3
 
-      # 2. Set up Python 3.12.7
+      # ----------------------------------------
+      # Set up Python 3.12.7
+      # ----------------------------------------
       - name: Set up Python 3.12.7
         uses: actions/setup-python@v4
         with:
           python-version: "3.12.7"
 
-      # 3. Install dependencies
-      - name: Install dependencies
+      # ----------------------------------------
+      # Check Environment Variables
+      # ----------------------------------------
+      - name: Check Env
         run: |
+          echo "✅ Checking environment variables..."
+          echo "CSV URL: $CSV_URL"
+
+      # ----------------------------------------
+      # Install MLflow Dependencies
+      # ----------------------------------------
+      - name: Install Dependencies
+        run: |
+          echo "✅ Installing MLflow dependencies..."
           python -m pip install --upgrade pip
-          pip install mlflow==2.19.0 pandas scikit-learn numpy cloudpickle google-api-python-client google-auth-httplib2 google-auth-oauthlib
+          pip install mlflow
 
-      # 4. Set MLflow Tracking URI
+      # ----------------------------------------
+      # Set MLflow Tracking URI (Local)
+      # ----------------------------------------
       - name: Set MLflow Tracking URI
-        run: echo "MLFLOW_TRACKING_URI=file://${{ github.workspace }}/MLProject/mlruns" >> $GITHUB_ENV
+        run: |
+          echo "✅ Setting MLflow Tracking URI..."
+          export MLFLOW_TRACKING_URI=./mlruns
+          echo "MLflow tracking set to $MLFLOW_TRACKING_URI"
 
-      # 5. Run MLflow Project
-      - name: Run MLflow project
-        run: mlflow run MLProject --env-manager=local
+      # ----------------------------------------
+      # Run MLflow Project
+      # ----------------------------------------
+      - name: Run mlflow project
+        run: |
+          echo "🚀 Running MLflow project..."
+          mlflow run MLproject --env-manager=local
 
-      # 6. Optional: Install extra python dependencies
-      - name: Install extra python dependencies
-        run: pip install -r MLProject/requirements.txt || echo "No extra requirements"
+      # ----------------------------------------
+      # Install Google Drive dependencies
+      # ----------------------------------------
+      - name: Install Python dependencies
+        run: |
+          echo "📦 Installing Google Drive dependencies..."
+          pip install --upgrade google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
 
-      # 7. Upload MLflow runs to Google Drive
-      - name: Upload MLflow runs to Google Drive
-        run: python upload_to_drive.py
+      # ----------------------------------------
+      # Upload model artefacts to Google Drive
+      # ----------------------------------------
+      - name: Upload to Google Drive
         env:
           GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          echo "☁️ Uploading model artefacts to Google Drive..."
+          python upload_to_gdrive.py
 
-      # 8. Complete job
-      - name: Complete Job
-        run: echo "Workflow Completed Successfully"
+      # ----------------------------------------
+      # Post-job cleanup
+      # ----------------------------------------
+      - name: Post Set up Python 3.12.7
+        if: always()
+        run: echo "🧹 Post setup for Python done."
+
+      - name: Post Run actions/checkout@v3
+        if: always()
+        run: echo "🧹 Post checkout cleanup done."
+
+      # ----------------------------------------
+      # Complete job
+      # ----------------------------------------
+      - name: Complete job
+        run: echo "✅ CI workflow completed successfully!"
