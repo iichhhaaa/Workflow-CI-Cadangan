@@ -31,64 +31,68 @@ jobs:
         run: |
           set -e
           python -m pip install --upgrade pip
-          pip install mlflow scikit-learn pandas numpy
+          pip install mlflow==2.19.0 scikit-learn pandas numpy
           pip install --upgrade google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
 
       # 4️⃣ Set MLflow Tracking URI & clear old runs
-      - name: Set MLflow Tracking URI
+      - name: Setup MLflow Tracking
         run: |
           set -e
           rm -rf ./mlruns || true
           echo "MLFLOW_TRACKING_URI=./mlruns" >> $GITHUB_ENV
           echo "✅ MLflow tracking set to ./mlruns"
 
-      # 5️⃣ Run MLflow Project (retrain model)
-      - name: Run MLflow Project
+      # 5️⃣ Run modelling.py langsung
+      - name: Run MLflow modelling.py
         run: |
           set -e
-          mlflow run MLProject --env-manager=local
-          echo "✅ MLflow Project executed successfully"
+          python MLProject/modelling.py \
+            --train_path liver_cancer_preprocessing/train_liver.csv \
+            --test_path liver_cancer_preprocessing/test_liver.csv \
+            --n_estimators 505 \
+            --max_depth 37
+          echo "✅ Modelling.py executed and MLflow run created"
 
       # 6️⃣ Get latest run_id
       - name: Get Latest MLflow run_id
         run: |
           set -e
-          RUN_ID=$(ls -td mlruns/0/*/ | head -n 1 | cut -d'/' -f3)
+          RUN_ID=$(ls -td ./mlruns/0/*/ | head -n 1 | cut -d'/' -f3)
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
           echo "✅ Latest run_id: $RUN_ID"
 
-      # 7️⃣ Upload model artefacts to Google Drive
+      # 7️⃣ Upload artefak ke Google Drive
       - name: Upload to Google Drive
         env:
           GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
           set -e
-          python scripts/upload_to_gdrive.py
+          python upload_to_gdrive.py
           echo "✅ Model artefacts uploaded to Google Drive"
 
-      # 8️⃣ Login to Docker Hub
+      # 8️⃣ Login ke Docker Hub
       - name: Docker Hub Login
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      # 9️⃣ Build Docker image dari MLflow model
+      # 9️⃣ Build Docker Image
       - name: Build Docker Image
         run: |
           set -e
           mlflow models build-docker --model-uri "runs:/$RUN_ID/model" --name "$IMAGE_NAME"
           echo "✅ Docker image built: $IMAGE_NAME"
 
-      # 🔟 Tag Docker image sesuai username
+      # 🔟 Tag Docker Image
       - name: Tag Docker Image
         run: |
           set -e
           docker tag $IMAGE_NAME ${{ secrets.DOCKER_HUB_USERNAME }}/$IMAGE_NAME:latest
           echo "✅ Docker image tagged: ${{ secrets.DOCKER_HUB_USERNAME }}/$IMAGE_NAME:latest"
 
-      # 1️⃣1️⃣ Push Docker image ke Docker Hub
+      # 1️⃣1️⃣ Push Docker Image ke Docker Hub
       - name: Push Docker Image
         run: |
           set -e
