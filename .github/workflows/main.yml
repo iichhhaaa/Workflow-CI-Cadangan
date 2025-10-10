@@ -1,4 +1,4 @@
-name: CI
+name: CI - Upload MLflow Artifacts to Google Drive
 
 on:
   push:
@@ -7,9 +7,10 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 env:
-  CSV_URL: "MLproject/train_pca.csv"
+  CSV_URL: "MLProject/train_pca.csv"
 
 jobs:
   build:
@@ -67,7 +68,7 @@ jobs:
       # ----------------------------------------
       # Install Google Drive dependencies
       # ----------------------------------------
-      - name: Install Python dependencies
+      - name: Install Google Drive Dependencies
         run: |
           echo "📦 Installing Google Drive dependencies..."
           pip install --upgrade google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
