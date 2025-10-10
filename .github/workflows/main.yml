@@ -43,11 +43,15 @@ jobs:
           echo "✅ MLflow tracking set to ./mlruns"
 
       # 5️⃣ Run MLflow Project (retrain model)
-      - name: Run MLflow Project
+      - name: Run Modelling Script
         run: |
           set -e
-          mlflow run MLProject --env-manager=local
-          echo "✅ MLflow Project executed successfully"
+          python MLProject/modelling.py \
+            --train_path MLProject/liver_cancer_preprocessing/train_liver.csv \
+            --test_path MLProject/liver_cancer_preprocessing/test_liver.csv \
+            --n_estimators 505 \
+            --max_depth 37
+          echo "✅ Modelling.py executed and MLflow run created"
 
       # 6️⃣ Get latest run_id
       - name: Get Latest MLflow run_id
