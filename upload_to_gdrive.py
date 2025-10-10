@@ -21,7 +21,7 @@ credentials = Credentials.from_service_account_info(
 service = build("drive", "v3", credentials=credentials)
 print("✅ Connected to Google Drive API.")
 
-# === 3️⃣ Shared Drive Folder Tujuan ===
+# === 3️⃣ Folder Shared Drive Tujuan ===
 SHARED_DRIVE_ID = folder_id
 print(f"📂 Target Shared Drive Folder ID: {SHARED_DRIVE_ID}")
 
@@ -47,8 +47,9 @@ def upload_directory(local_dir_path, parent_drive_id):
             new_folder_id = created_folder["id"]
             print(f"📁 Created folder: {item_name} (ID: {new_folder_id})")
 
-            # Upload isi folder
+            # Rekursif untuk isi folder
             upload_directory(item_path, new_folder_id)
+
         else:
             print(f"⬆️ Uploading file: {item_name}")
             file_meta = {"name": item_name, "parents": [parent_drive_id]}
@@ -61,37 +62,29 @@ def upload_directory(local_dir_path, parent_drive_id):
             ).execute()
             print(f"✅ Uploaded file: {item_name} (ID: {uploaded_file['id']})")
 
-# === 5️⃣ Cari semua run di ./mlruns/0 ===
-local_mlruns_0 = "./mlruns/0"
 
-if not os.path.exists(local_mlruns_0):
-    raise FileNotFoundError("❌ Folder ./mlruns/0 tidak ditemukan. Pastikan MLflow sudah dijalankan.")
+# === 5️⃣ Pastikan folder ./mlruns/0 ada ===
+local_mlruns = "./mlruns"
+if not os.path.exists(local_mlruns):
+    raise FileNotFoundError("❌ Folder ./mlruns tidak ditemukan. Pastikan MLflow sudah dijalankan.")
 
-run_ids = [d for d in os.listdir(local_mlruns_0) if os.path.isdir(os.path.join(local_mlruns_0, d))]
+# === 6️⃣ Buat folder utama 'mlruns' di Shared Drive ===
+mlruns_meta = {
+    "name": "mlruns",
+    "mimeType": "application/vnd.google-apps.folder",
+    "parents": [SHARED_DRIVE_ID],
+}
 
-if not run_ids:
-    print("⚠️ Tidak ada run_id ditemukan di ./mlruns/0/")
-else:
-    print(f"📊 Ditemukan {len(run_ids)} run_id untuk diupload ke Shared Drive...")
+mlruns_folder = service.files().create(
+    body=mlruns_meta,
+    fields="id",
+    supportsAllDrives=True
+).execute()
 
-# === 6️⃣ Buat folder untuk tiap run_id dan upload ===
-for run_id in run_ids:
-    run_local_path = os.path.join(local_mlruns_0, run_id)
-    run_folder_meta = {
-        "name": run_id,
-        "mimeType": "application/vnd.google-apps.folder",
-        "parents": [SHARED_DRIVE_ID],
-    }
+mlruns_folder_id = mlruns_folder["id"]
+print(f"📁 Created main folder 'mlruns' (ID: {mlruns_folder_id})")
 
-    run_folder = service.files().create(
-        body=run_folder_meta,
-        fields="id",
-        supportsAllDrives=True
-    ).execute()
-    run_folder_id = run_folder["id"]
-    print(f"\n=== 🧠 Created run folder: {run_id} (ID: {run_folder_id}) ===")
+# === 7️⃣ Upload semua isi ./mlruns ke folder mlruns di Drive ===
+upload_directory(local_mlruns, mlruns_folder_id)
 
-    # Upload isi folder run_id
-    upload_directory(run_local_path, run_folder_id)
-
-print("\n🎉 Semua run_id dan isinya berhasil diupload ke Shared Drive!")
+print("\n🎉 Folder 'mlruns' dan seluruh isinya berhasil diupload ke Shared Drive!")
