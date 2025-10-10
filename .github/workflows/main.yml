@@ -8,19 +8,19 @@ on:
   workflow_dispatch:
 
 env:
+  TARGET_VAR: "liver_cancer"
   IMAGE_NAME: cc
-  TARGET_VAR: liver_cancer
 
 jobs:
   advanced:
     runs-on: ubuntu-latest
-
     steps:
+
       # 1️⃣ Checkout repository
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Setup Python
+      # 2️⃣ Setup Python 3.12.7
       - name: Setup Python 3.12.7
         uses: actions/setup-python@v4
         with:
@@ -29,60 +29,72 @@ jobs:
       # 3️⃣ Install dependencies
       - name: Install Dependencies
         run: |
+          set -e
           python -m pip install --upgrade pip
           pip install mlflow scikit-learn pandas numpy
           pip install --upgrade google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
 
-      # 4️⃣ Set MLflow Tracking URI & bersihkan runs lama
+      # 4️⃣ Set MLflow Tracking URI & clear old runs
       - name: Set MLflow Tracking URI
         run: |
+          set -e
           rm -rf ./mlruns || true
           echo "MLFLOW_TRACKING_URI=./mlruns" >> $GITHUB_ENV
           echo "✅ MLflow tracking set to ./mlruns"
 
-      # 5️⃣ Run MLflow Project (membuat run baru)
+      # 5️⃣ Run MLflow Project (retrain model)
       - name: Run MLflow Project
         run: |
-          mlflow run MLProject --env-manager=local
+          set -e
+          mlflow run MLProject --env-manager=local --no-conda
           echo "✅ MLflow Project executed successfully"
 
-      # 6️⃣ Ambil run_id terbaru
+      # 6️⃣ Get latest run_id
       - name: Get Latest MLflow run_id
         run: |
+          set -e
           RUN_ID=$(ls -td mlruns/0/*/ | head -n 1 | cut -d'/' -f3)
+          if [ -z "$RUN_ID" ]; then
+            echo "❌ No MLflow run found!"
+            exit 1
+          fi
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
           echo "✅ Latest run_id: $RUN_ID"
 
-      # 7️⃣ Upload artefak ke Google Drive
+      # 7️⃣ Upload model artefacts to Google Drive
       - name: Upload to Google Drive
         env:
           GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
+          set -e
           python upload_to_gdrive.py
-          echo "✅ Artefak mlruns uploaded to Google Drive"
+          echo "✅ Model artefacts uploaded to Google Drive"
 
-      # 8️⃣ Login ke Docker Hub
+      # 8️⃣ Login to Docker Hub
       - name: Docker Hub Login
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      # 9️⃣ Build Docker Image dari MLflow model
+      # 9️⃣ Build Docker image dari MLflow model
       - name: Build Docker Image
         run: |
+          set -e
           mlflow models build-docker --model-uri "runs:/$RUN_ID/model" --name "$IMAGE_NAME"
           echo "✅ Docker image built: $IMAGE_NAME"
 
-      # 🔟 Tag Docker image
+      # 🔟 Tag Docker image sesuai username
       - name: Tag Docker Image
         run: |
+          set -e
           docker tag $IMAGE_NAME ${{ secrets.DOCKER_HUB_USERNAME }}/$IMAGE_NAME:latest
           echo "✅ Docker image tagged: ${{ secrets.DOCKER_HUB_USERNAME }}/$IMAGE_NAME:latest"
 
-      # 1️⃣1️⃣ Push Docker Image ke Docker Hub
+      # 1️⃣1️⃣ Push Docker image ke Docker Hub
       - name: Push Docker Image
         run: |
+          set -e
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/$IMAGE_NAME:latest
           echo "✅ Docker image pushed to Docker Hub"
