@@ -1,102 +1,70 @@
-name: CI - Upload MLflow Artifacts to Google Drive
+name: CI/CD MLflow
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 env:
   CSV_URL: "MLProject/train_pca.csv"
+  TARGET_VAR: "Credit_Score"
+  IMAGE_NAME: cc
 
 jobs:
-  build:
+  advanced:
     runs-on: ubuntu-latest
-
     steps:
-      # ----------------------------------------
-      # Set up job: Checkout repository
-      # ----------------------------------------
-      - name: Run actions/checkout@v3
-        uses: actions/checkout@v3
+      # 1️⃣ Checkout repository
+      - uses: actions/checkout@v3
 
-      # ----------------------------------------
-      # Set up Python 3.12.7
-      # ----------------------------------------
-      - name: Set up Python 3.12.7
-        uses: actions/setup-python@v4
+      # 2️⃣ Setup Python 3.12.7
+      - uses: actions/setup-python@v4
         with:
-          python-version: "3.12.7"
+          python-version: '3.12.7'
 
-      # ----------------------------------------
-      # Check Environment Variables
-      # ----------------------------------------
-      - name: Check Env
-        run: |
-          echo "✅ Checking environment variables..."
-          echo "CSV URL: $CSV_URL"
-
-      # ----------------------------------------
-      # Install MLflow Dependencies
-      # ----------------------------------------
-      - name: Install Dependencies
-        run: |
-          echo "✅ Installing MLflow dependencies..."
+      # 3️⃣ Install dependencies
+      - run: |
           python -m pip install --upgrade pip
           pip install mlflow
-
-      # ----------------------------------------
-      # Set MLflow Tracking URI (Local)
-      # ----------------------------------------
-      - name: Set MLflow Tracking URI
-        run: |
-          echo "✅ Setting MLflow Tracking URI..."
-          export MLFLOW_TRACKING_URI=./mlruns
-          echo "MLflow tracking set to $MLFLOW_TRACKING_URI"
-
-      # ----------------------------------------
-      # Run MLflow Project
-      # ----------------------------------------
-      - name: Run mlflow project
-        run: |
-          echo "🚀 Running MLflow project..."
-          mlflow run ./MLProject --env-manager=local
-
-      # ----------------------------------------
-      # Install Google Drive dependencies
-      # ----------------------------------------
-      - name: Install Google Drive Dependencies
-        run: |
-          echo "📦 Installing Google Drive dependencies..."
           pip install --upgrade google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
 
-      # ----------------------------------------
-      # Upload model artefacts to Google Drive
-      # ----------------------------------------
-      - name: Upload to Google Drive
-        env:
+      # 4️⃣ Set MLflow Tracking URI
+      - run: |
+          echo "MLFLOW_TRACKING_URI=./mlruns" >> $GITHUB_ENV
+
+      # 5️⃣ Run MLflow Project (retrain model)
+      - run: |
+          mlflow run MLProject --env-manager=local
+
+      # 6️⃣ Get latest run_id dari folder mlruns
+      - run: |
+          RUN_ID=$(ls -td mlruns/0/*/ | head -n 1 | cut -d'/' -f3)
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          echo "Latest run_id: $RUN_ID"
+
+      # 7️⃣ Upload artefak ke Google Drive
+      - env:
           GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
-          echo "☁️ Uploading model artefacts to Google Drive..."
-          python upload_to_gdrive.py
+          python scripts/upload_to_gdrive.py
 
-      # ----------------------------------------
-      # Post-job cleanup
-      # ----------------------------------------
-      - name: Post Set up Python 3.12.7
-        if: always()
-        run: echo "🧹 Post setup for Python done."
+      # 8️⃣ Login ke Docker Hub
+      - uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      - name: Post Run actions/checkout@v3
-        if: always()
-        run: echo "🧹 Post checkout cleanup done."
+      # 9️⃣ Build Docker Image
+      - run: |
+          mlflow models build-docker --model-uri "runs:/$RUN_ID/model" --name "$IMAGE_NAME"
 
-      # ----------------------------------------
-      # Complete job
-      # ----------------------------------------
-      - name: Complete job
-        run: echo "✅ CI workflow completed successfully!"
+      # 🔟 Tag Docker Image
+      - run: |
+          docker tag $IMAGE_NAME ${{ secrets.DOCKER_HUB_USERNAME }}/$IMAGE_NAME:latest
+
+      # 1️⃣1️⃣ Push Docker Image ke Docker Hub
+      - run: |
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/$IMAGE_NAME:latest
