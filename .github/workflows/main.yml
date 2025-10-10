@@ -1,6 +1,5 @@
 name: CI/CD MLflow Advanced
 
-# Trigger workflow otomatis
 on:
   push:
     branches: [ main ]
@@ -8,11 +7,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# Environment variables global
 env:
-  CSV_URL: "MLProject/train_pca.csv"       # Path dataset
-  TARGET_VAR: "liver_cancer"               # Target variabel
-  IMAGE_NAME: cc                            # Nama Docker image
+  TARGET_VAR: "liver_cancer"
+  IMAGE_NAME: cc
 
 jobs:
   advanced:
@@ -32,25 +29,30 @@ jobs:
       # 3️⃣ Install dependencies
       - name: Install Dependencies
         run: |
+          set -e
           python -m pip install --upgrade pip
-          pip install mlflow
+          pip install mlflow scikit-learn pandas numpy
           pip install --upgrade google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
 
-      # 4️⃣ Set MLflow Tracking URI
+      # 4️⃣ Set MLflow Tracking URI & clear old runs
       - name: Set MLflow Tracking URI
         run: |
+          set -e
+          rm -rf ./mlruns || true
           echo "MLFLOW_TRACKING_URI=./mlruns" >> $GITHUB_ENV
           echo "✅ MLflow tracking set to ./mlruns"
 
       # 5️⃣ Run MLflow Project (retrain model)
       - name: Run MLflow Project
         run: |
+          set -e
           mlflow run MLProject --env-manager=local
           echo "✅ MLflow Project executed successfully"
 
       # 6️⃣ Get latest run_id
       - name: Get Latest MLflow run_id
         run: |
+          set -e
           RUN_ID=$(ls -td mlruns/0/*/ | head -n 1 | cut -d'/' -f3)
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
           echo "✅ Latest run_id: $RUN_ID"
@@ -61,6 +63,7 @@ jobs:
           GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
+          set -e
           python scripts/upload_to_gdrive.py
           echo "✅ Model artefacts uploaded to Google Drive"
 
@@ -74,17 +77,20 @@ jobs:
       # 9️⃣ Build Docker image dari MLflow model
       - name: Build Docker Image
         run: |
+          set -e
           mlflow models build-docker --model-uri "runs:/$RUN_ID/model" --name "$IMAGE_NAME"
           echo "✅ Docker image built: $IMAGE_NAME"
 
       # 🔟 Tag Docker image sesuai username
       - name: Tag Docker Image
         run: |
+          set -e
           docker tag $IMAGE_NAME ${{ secrets.DOCKER_HUB_USERNAME }}/$IMAGE_NAME:latest
           echo "✅ Docker image tagged: ${{ secrets.DOCKER_HUB_USERNAME }}/$IMAGE_NAME:latest"
 
       # 1️⃣1️⃣ Push Docker image ke Docker Hub
       - name: Push Docker Image
         run: |
+          set -e
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/$IMAGE_NAME:latest
           echo "✅ Docker image pushed to Docker Hub"
