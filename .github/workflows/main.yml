@@ -62,7 +62,7 @@ jobs:
       - name: Run mlflow project
         run: |
           echo "🚀 Running MLflow project..."
-          mlflow run MLproject --env-manager=local
+          mlflow run ./MLProject --env-manager=local
 
       # ----------------------------------------
       # Install Google Drive dependencies
