@@ -46,7 +46,7 @@ jobs:
       - name: Run MLflow Project
         run: |
           set -e
-          mlflow run MLProject --env-manager=local --no-conda
+          mlflow run MLProject --env-manager=local
           echo "✅ MLflow Project executed successfully"
 
       # 6️⃣ Get latest run_id
